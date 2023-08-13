@@ -4,7 +4,7 @@ from tkinter import ttk
 
 import httpx
 
-from simplegui.async_worker import async_task
+from jiradeps.async_worker import async_task
 
 
 @async_task
@@ -12,7 +12,7 @@ async def make_req(data):
     data.set('requesting...')
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get('http://127.0.0.1:8000/')
+            resp = await client.get('http://127.0.0.1:3000/')
             resp = resp.json()
         data.set(resp['message'])
     except Exception:

@@ -1,12 +1,12 @@
 [tool.poetry]
-name = "simplegui"
+name = "jira-deps"
 version = "0.1.0"
 description = ""
 authors = ["kupce <kupec-k@ya.ru>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.10"
 httpx = "^0.24.1"
 loguru = "^0.7.0"
 
