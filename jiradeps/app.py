@@ -10,13 +10,23 @@ from jiradeps.settings import Settings, get_settings, save_settings
 
 setting_keys = ['jira_project', 'jira_epic_jql']
 
+
+SettingsDataVars = dict[str, tk.StringVar]
+
+class AppModel:
+    settings_data_vars: SettingsDataVars = dict()
+
+app_model = AppModel()
+
 @async_task
 async def app(root: tk.Tk):
     loader_window = create_loader_frame(root)
     settings = await get_settings()
+    for key, value in settings:
+        app_model.settings_data_vars[key] = tk.StringVar(value=value)
 
     loader_window.destroy()
-    create_main_frame(root, settings)
+    create_main_frame(root)
 
 
 def create_loader_frame(root: tk.Tk) -> ttk.Frame:
@@ -27,22 +37,20 @@ def create_loader_frame(root: tk.Tk) -> ttk.Frame:
     return frame
 
 
-def create_main_frame(root: tk.Tk, settings: Settings) -> ttk.Frame:
+def create_main_frame(root: tk.Tk) -> ttk.Frame:
     frame = ttk.Frame(root, padding=8)
     frame.grid()
 
-    for index, key in enumerate(setting_keys):
+    for index, key in enumerate(app_model.settings_data_vars):
         ttk.Label(frame, text=f'{key} = ').grid(column=0, row=index)
+        ttk.Label(frame, textvariable=app_model.settings_data_vars[key]).grid(column=1, row=index)
 
-        value = getattr(settings, key)
-        ttk.Label(frame, text=value).grid(column=1, row=index)
-
-    create_main_menu(root, settings)
+    create_main_menu(root)
 
     frame.pack()
     return frame
 
-def create_main_menu(root: tk.Tk, settings: Settings):
+def create_main_menu(root: tk.Tk):
     root.option_add('*tearOff', False)
     menubar = tk.Menu(root)
 
@@ -50,7 +58,6 @@ def create_main_menu(root: tk.Tk, settings: Settings):
     menu_file.add_command(label='Settings...', command=partial(
         create_settings_window,
         root,
-        settings,
     ))
     menu_file.add_command(label='Exit', command=root.destroy)
     menubar.add_cascade(label='App', menu=menu_file)
@@ -58,19 +65,19 @@ def create_main_menu(root: tk.Tk, settings: Settings):
     root['menu'] = menubar
 
 
-def create_settings_window(root: tk.Tk, settings: Settings):
+def create_settings_window(root: tk.Tk):
     window = tk.Toplevel(root)
     window.title('Settings')
 
     frame = ttk.Frame(window)
     frame.grid()
 
-    settings_values: dict[str, tk.StringVar] = dict()
-    for index, key in enumerate(setting_keys):
-        ttk.Label(frame, text=f'{key} = ').grid(column=0, row=index)
+    next_settings_data_vars = dict()
+    for index, (key, value) in enumerate(app_model.settings_data_vars.items()):
+        data_var = tk.StringVar(value=value.get())
+        next_settings_data_vars[key] = data_var
 
-        data_var = tk.StringVar(value=getattr(settings, key))
-        settings_values[key] = data_var
+        ttk.Label(frame, text=f'{key} = ').grid(column=0, row=index)
         ttk.Entry(frame, textvariable=data_var).grid(column=1, row=index)
 
     ttk.Button(
@@ -78,7 +85,7 @@ def create_settings_window(root: tk.Tk, settings: Settings):
         text='Save',
         command=partial(
             handle_save_settings,
-            settings_values,
+            next_settings_data_vars,
             on_close=window.destroy,
         ),
     ).grid(column=0, row=len(setting_keys))
@@ -91,11 +98,14 @@ def create_settings_window(root: tk.Tk, settings: Settings):
     frame.pack()
 
 @async_task
-async def handle_save_settings(settings_values: dict[str, tk.StringVar], on_close: Callable):
+async def handle_save_settings(next_settings_data_vars: SettingsDataVars, on_close: Callable):
     next_settings = Settings(**{
         key: value.get()
-        for key, value in settings_values.items()
+        for key, value in next_settings_data_vars.items()
     })
     await save_settings(next_settings)
+
+    for key, value in next_settings_data_vars.items():
+        app_model.settings_data_vars[key].set(value.get())
 
     on_close()
