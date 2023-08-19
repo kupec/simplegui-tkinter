@@ -1,8 +1,13 @@
+import asyncio
 from functools import partial
 
+import httpx
+from loguru import logger
+from pydantic import BaseModel
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable
+import yarl
 
 from jiradeps.async_worker import async_task
 from jiradeps.settings import Settings, get_settings, save_settings
@@ -16,16 +21,21 @@ SettingsDataVars = dict[str, tk.StringVar]
 class AppModel:
     settings_data_vars: SettingsDataVars = dict()
 
+class Issue(BaseModel):
+    key: str
+    summary: str
+    description: str
+
 app_model = AppModel()
 
 @async_task
 async def app(root: tk.Tk):
-    loader_window = create_loader_frame(root)
+    loader_frame = create_loader_frame(root)
     settings = await get_settings()
     for key, value in settings:
         app_model.settings_data_vars[key] = tk.StringVar(value=value)
 
-    loader_window.destroy()
+    loader_frame.destroy()
     create_main_frame(root)
 
 
@@ -33,7 +43,6 @@ def create_loader_frame(root: tk.Tk) -> ttk.Frame:
     frame = ttk.Frame(root, padding=50)
     frame.grid()
     ttk.Label(frame, text='Loading...').grid(column=0, row=0)
-    frame.pack()
     return frame
 
 
@@ -41,14 +50,42 @@ def create_main_frame(root: tk.Tk) -> ttk.Frame:
     frame = ttk.Frame(root, padding=8)
     frame.grid()
 
-    for index, key in enumerate(app_model.settings_data_vars):
-        ttk.Label(frame, text=f'{key} = ').grid(column=0, row=index)
-        ttk.Label(frame, textvariable=app_model.settings_data_vars[key]).grid(column=1, row=index)
-
     create_main_menu(root)
 
-    frame.pack()
+    loading_label = ttk.Label(frame, text='Loading...')
+    loading_label.grid(column=0, row=0)
+
+    @async_task
+    async def on_mount():
+        try:
+            issues = await load_issues()
+        except:
+            loading_label['text'] = 'Cannot fetch issues'
+        else:
+            loading_label.destroy()
+
+            issue_selector = ttk.Combobox(
+                frame,
+                width=200,
+                values=[f'{issue.key} {issue.summary}' for issue in issues]
+            )
+            issue_selector.grid(column=0, row=0)
+            issue_selector.set(issue_selector['values'][0])
+
+    on_mount()
+
     return frame
+
+
+@logger.catch(reraise=True)
+async def load_issues():
+    settings = await get_settings()
+    base_url = yarl.URL(settings.jira_base_url)
+    async with httpx.AsyncClient() as client:
+        response = await client.post(str(base_url / 'rest/api/2/search'))
+        data = response.json()
+
+    return [Issue(**issue_data, **issue_data['fields']) for issue_data in data['issues']]
 
 def create_main_menu(root: tk.Tk):
     root.option_add('*tearOff', False)
@@ -95,7 +132,6 @@ def create_settings_window(root: tk.Tk):
         command=window.destroy,
     ).grid(column=1, row=len(setting_keys))
 
-    frame.pack()
 
 @async_task
 async def handle_save_settings(next_settings_data_vars: SettingsDataVars, on_close: Callable):

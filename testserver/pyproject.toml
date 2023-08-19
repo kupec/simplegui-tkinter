@@ -1,18 +1,15 @@
 [tool.poetry]
-name = "jira-deps"
+name = "testserver"
 version = "0.1.0"
 description = ""
-authors = ["kupce <kupec-k@ya.ru>"]
+authors = ["Dmitry Kostromin <kupec-k@ya.ru>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-httpx = "^0.24.1"
-loguru = "^0.7.0"
-pydantic-settings = "^2.0.2"
-platformdirs = "^3.10.0"
-aiofiles = "^23.2.1"
-yarl = "^1.9.2"
+fastapi = "^0.101.1"
+uvicorn = {extras = ["standart"], version = "^0.23.2"}
+black = "^23.7.0"
 
 
 [build-system]

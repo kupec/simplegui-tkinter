@@ -10,6 +10,7 @@ import platformdirs
 
 
 class Settings(BaseSettings):
+    jira_base_url: str = 'http://127.0.0.1:8001'
     jira_project: str = ''
     jira_epic_jql: str = 'type = Epic'
 
